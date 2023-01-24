@@ -131,7 +131,7 @@ Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con
 
 ```{r}
 model <- glm(is_kama ~ area + perimetro+ compacto+ longitud+ coeficient.asimetria+ longitud.ranura, family = binomial(link='logit'), data = df_seeds_train)
-#Miramos
+
 summary(model)
 ```
 
@@ -163,8 +163,8 @@ paste("tp:",truePositive,"  fp:",falsePositive)
 
 
 
-paste("La precisión es:",M[2,2]/sum(M[2,]))
-paste("La exhaustividad (recall, sensitivity) es:",M[2,2]/sum(M[,2]))
+paste("La exhaustividad es:",M[2,2]/sum(M[2,]))
+paste("La precision es:",M[2,2]/sum(M[,2]))
 
 
 ```

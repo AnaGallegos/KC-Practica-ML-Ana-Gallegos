@@ -1,0 +1,182 @@
+---
+title: "Practica_final_Renata"
+format: html
+editor: visual
+---
+
+Vamos a utilizar el dataset de semillas que se encuentra aquí: <https://archive.ics.uci.edu/ml/datasets/seeds#>
+
+Primero vamos a descargarnos el dataset con el siguiente comando:
+
+```{r}
+#Load the requored libraries:
+if(!require(tidyverse)) install.packeages("tidyverse")
+library(tidyverse)
+library(caret)
+#Load the seed Dataset:
+df_seeds <- read.table('https://archive.ics.uci.edu/ml/machine-learning-databases/00236/seeds_dataset.txt', col.names =c('area','perimetro','compacto','longitud','anchura','coeficient.asimetria','longitud.ranura','tipo'))
+#Visualizo la tabla toda
+#view(df_seeds)
+```
+
+#### PREGUNTA 1
+
+¿Cuantas filas y cuantas columnas tiene el dataframe df_seeds?
+
+**Respuesta**:
+
+```{r}
+paste("Hay",nrow(df_seeds), "filas y", ncol(df_seeds), "columnas.")
+```
+
+#### PREGUNTA 2
+
+Vamos a convertir en factor la columna tipo. Vamos a reemplazar los números por su correspondiente etiqueta (label). La correspondencia entre el código y el tipo es:
+
+-   1 - Kama
+-   2 - Rosa
+-   3 - Canadian
+
+Convierte en factor la columna tipo, respetando las etiquetas:
+
+**Respuesta**:
+
+```{r}
+#Transformo en la columna tipo  1,2,3 en "Kama", "Rosa", "Canadian":
+df_seeds$tipo <- factor(df_seeds$tipo, levels = c(1,2,3), labels=c("Kama", "Rosa", "Canadian"))
+#df_seeds$tipo <- factor(df_seeds$tipo,labels=c("Kama", "Rosa", "Canadian"))
+#Visualizo en tabla
+table(df_seeds$tipo)
+```
+
+#### PREGUNTA 3
+
+¿Cual es la media del area de cada uno de los tipos?
+
+**Respuesta**
+
+```{r}
+
+df_seeds |> group_by(tipo) |> summarize(area_media=round(mean(area),2))
+
+```
+
+#### PREGUNTA 4
+
+¿Como se llama el siguiente tipo de gráfico?. ¿Qué representa la línea del centro de la caja?
+
+```{r}
+ggplot(df_seeds, aes(x=tipo, y=area,  color=tipo)) + geom_boxplot()
+```
+
+**Respuesta**: Es un Diagrama de cajas y bigotes. La línea del centro representa la mediana, y las otras dos lineas que forman la caja, los Q1 y Q2.
+
+#### PREGUNTA 5
+
+¿Como pintarías un diagrama de puntos (o scatterplot) con ggplot con las siguientes características? - En el eje X la variable compacto - En el eje Y la variable area - Cada tipo de semilla debería tener un color diferente
+
+**Respuesta**:
+
+```{r}
+ggplot(df_seeds, aes(x=compacto, y=area, color=tipo))+geom_point(size=2.3)+
+  ggtitle("Gráfico de dispersión", subtitle = "Área - Compacto")
+```
+
+#### PREGUNTA 6
+
+¿Qué hace la siguiente línea?:
+
+```{r}
+df_seeds |> mutate(is_kama = tipo=='Kama') -> df_seeds
+head(df_seeds)
+```
+
+**Respuesta**: Se crea una columna nueva llamada "is_kama". En esta columna se evalua mediante un booleano si la semilla es Kama y por tanto "True" o si no lo es, indicado como "False".
+
+#### PREGUNTA 7
+
+Vamos a dividir el conjunto de datos en test y training porque vamos a entrenar un modelo que me permita diferenciar si una semilla es de tipo Kama o no.
+
+```{r}
+# Transformamos el tipo nuestro dato booleano en uno numérico 
+df_seeds$is_kama <- as.numeric(df_seeds$is_kama)
+set.seed(123) # Este set.seed hace que a todos nos generen los mismos número aleatorios
+idx <- sample(1:nrow(df_seeds), 0.7*nrow(df_seeds))
+df_seeds_train <- df_seeds[idx,]
+df_seeds_test <- df_seeds[-idx,]
+
+```
+
+¿Por qué es aconsejable dividir el dataset en los grupos de train y test?
+
+**Respuesta**:
+
+Los **datos de prueba** o validación son los datos que nos \"guardamos\" para comprobar si el modelo que hemos generado a partir de los datos de entrenamiento funciona. Es decir, si las respuestas predichas por el modelo para un caso totalmente nuevo son acertadas o no.
+
+Es importante que el conjunto de datos de prueba tenga un volumen suficiente como para generar resultados estadísticamente significativos, y a la vez, que sea representativo del conjunto de datos global.
+
+#### PREGUNTA 8
+
+Vamos a crear un modelo para realizar una **clasificación binaria**, donde le pasaremos como entrada las columnas: area, perimetro, compacto, longitud, coeficient.asimetria y longitud.ranura
+
+¿Qué tipo de algoritmo o modelo debería usar?
+
+**Respuesta**: Deberíamos usar una regresión logistica binaria, donde obtendremos un clasificador binario en función de las distintas variables de las que se alimente el modelo.
+
+#### PREGUNTA 9
+
+Crea un modelo que me permita clasificar si una semilla es de tipo Kama o no con las siguientes columnas: area, perimetro, compacto, longitud, coeficient.asimetria, longitud.ranura
+
+**Respuesta**:
+
+```{r}
+model <- glm(is_kama ~ area + perimetro+ compacto+ longitud+ coeficient.asimetria+ longitud.ranura, family = binomial(link='logit'), data = df_seeds_train)
+#Miramos
+summary(model)
+```
+
+A primera vista parece que el modelo funciona bien, si observamos los p-valores ninguno se acerca si quiera al 0.05 recomendado.
+
+#### PREGUNTA 10
+
+Si usamos un umbral de 0 en la salida del modelo (lo que equivale a probabilidad de 0.5 cuando usamos el predict con type='response') ¿Cuales son los valores de precisión y exhausitividad?
+
+**Respuesta**.
+
+```{r}
+umbral <- 0
+pred_test <- predict(model,df_seeds_test) 
+df_preds<-data.frame(pred=pred_test,
+                     tipo_pred=factor(ifelse(pred_test < umbral,0,1),
+                                      labels=c("FALSE","TRUE")),
+                     tipo_real=df_seeds_test$is_kama)
+df_preds<-df_preds[order(df_preds$pred, decreasing=FALSE),]
+M<-table(df_preds$tipo_real,df_preds$tipo_pred)
+
+#Recall, Exhaustividad, Tasa Verdadero positivo
+truePositive<-M[2,2]/(M[2,2]+M[2,1]) 
+#Tasa Falso positivo
+falsePositive<-M[1,2]/(M[1,2]+M[1,1])
+paste("tp:",truePositive,"  fp:",falsePositive)
+#M
+#df_preds
+
+
+
+paste("La precisión es:",M[2,2]/sum(M[2,]))
+paste("La exhaustividad (recall, sensitivity) es:",M[2,2]/sum(M[,2]))
+
+
+```
+
+#### PREGUNTA 11
+
+¿Qué están haciendo las siguientes líneas?
+
+```{r}
+set.seed(123)
+cl<-df_seeds |> dplyr::select(area,perimetro,compacto,longitud,anchura,coeficient.asimetria,longitud.ranura) |> kmeans(3)
+table(real=df_seeds$tipo,cluster=cl$cluster)
+```
+
+**Respuesta**: 'Se asigna las columnas del cluster al dataset y en este caso en 3 clusters. Se calculan los centroides y por ultimo se crea una tabla que compara los datos reales con los clusters creados.
